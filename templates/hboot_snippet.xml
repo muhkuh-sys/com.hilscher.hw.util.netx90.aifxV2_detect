@@ -1,4 +1,4 @@
-<!-- Load the read_rotaryswitch program. 
+<!-- Load the aifxV2 detect program. 
 ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_MICRO}.${PROJECT_VERSION_VCS} -->
 <Data>
 	<Hex address="${%LOAD_ADDRESS%}">
@@ -8,5 +8,4 @@ ${%PROGRAM_DATA%}
 <Execute>
 	<Address>${%EXECUTION_ADDRESS%}</Address>
 	<R0>%%TARGET_ADDRESS%%</R0>
-	<R1>%%MMIO_SELECT%%</R1>
 </Execute>

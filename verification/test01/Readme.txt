@@ -1,4 +1,4 @@
-This is the testdescription for testing the read_rotaryswitch snippet
+This is the test description for testing the read_rotaryswitch snippet
 
 Preparations:
 - CIFX PCIE4000-RE (PC Card with two Ethernet Ports)
