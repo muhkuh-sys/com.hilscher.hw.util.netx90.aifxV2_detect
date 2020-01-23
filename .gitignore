@@ -9,3 +9,6 @@
 
 # Ignore all compiled python modules.
 *.pyc
+
+# Ignores the build data of sniplib
+.sniplib.dblite
