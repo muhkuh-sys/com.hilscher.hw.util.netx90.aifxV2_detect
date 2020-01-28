@@ -23,9 +23,9 @@ ENTRY(start)
 MEMORY
 {
 	ASSERT_EMPTY(rwx)  : ORIGIN = 0x00000000, LENGTH = 0
-
+	/*ARB: hierhin das image vom Snippet*/
 	INTRAM(rwx)        : ORIGIN = 0x000200C0, LENGTH = 0x0001FF40
-	IFLASH(rx)         : ORIGIN = 0x00200000, LENGTH = 0x00080000
+	/*ARB:IFLASH(rx)         : ORIGIN = 0x00200000, LENGTH = 0x00080000*/
 }
 
 
