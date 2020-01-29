@@ -34,33 +34,46 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   NX90_DEF_ptPadCtrlArea
   NX90_DEF_ptXc0Xmac0RegsArea
 
-  
+  // # enable Padcontrol
+  // ## Target pins
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptPadCtrlArea->aulPad_ctrl_com_io[0] = MSK_NX90_pad_ctrl_com_io0_pe | MSK_NX90_pad_ctrl_com_io0_ie; // also enable the INPUT!!!
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptPadCtrlArea->aulPad_ctrl_com_io[1] = MSK_NX90_pad_ctrl_com_io1_pe | MSK_NX90_pad_ctrl_com_io1_ie;
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptPadCtrlArea->aulPad_ctrl_mii0_txd[1] = MSK_NX90_pad_ctrl_mii0_txd1_pe | MSK_NX90_pad_ctrl_mii0_txd1_ie;
+
+  // ## MMIO2
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptPadCtrlArea->aulPad_ctrl_mmio[2] = MSK_NX90_pad_ctrl_mmio2_pe | MSK_NX90_pad_ctrl_mmio2_ie;
 
 
-  activateLock();
-  ptPadCtrlArea->aulPad_ctrl_com_io[1] = MSK_NX90_pad_ctrl_com_io1_pe;
-  activateLock();
-  ptPadCtrlArea->aulPad_ctrl_com_io[2] = MSK_NX90_pad_ctrl_com_io2_pe;
-  activateLock();
-  ptPadCtrlArea->aulPad_ctrl_mii0_txd[1] = MSK_NX90_pad_ctrl_mii0_rxd1_pe;
+  //io_config0 activate PY-LED
+  unsigned long config_asic_ctrl_mux = 8 << SRT_NX90_io_config0_sel_xm0_mii_cfg | 2 << SRT_NX90_io_config0_sel_xm0_io; // connect to internal phy | enable xm0_io1
+  unsigned long config_asic_ctrl_mux_wm = config_asic_ctrl_mux | config_asic_ctrl_mux << 16;
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptAsicCtrlArea->asIo_config[0].ulConfig = config_asic_ctrl_mux_wm;
 
-  // switch on group clock and enable pass clock to unit
+
+
+  // # Clock switch on group clock and enable pass clock to unit
   
   unsigned long enableValueClocks = ( MSK_NX90_clock_enable0_xc_misc | MSK_NX90_clock_enable0_xc_misc_wm ) | ( MSK_NX90_clock_enable0_xmac0 | MSK_NX90_clock_enable0_xmac0_wm );
   unsigned long disableValueClocks = MSK_NX90_clock_enable0_xc_misc_wm | MSK_NX90_clock_enable0_xmac0_wm;
 
-  activateLock();
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asClock_enable[0].ulEnable = enableValueClocks;
   // just set the write mask, all other values are 0 so bothe bits will flip back to 0
 
 
-  // *pul_clock_enable0 = enableValueClocks;
-
-  unsigned long ulResult = ptXc0Xmac0RegsArea->ulXmac_status_shared0;
-
+  // # Retrieve values
+  volatile unsigned long ulResult = ptXc0Xmac0RegsArea->ulXmac_status_shared0;
+  volatile unsigned long ulResultMMIO = (unsigned long *) Adr_NX90_mmio_ctrl_mmio2_cfg;
   // read IO-Pins, to select the type of the bus peripheral
 
-  activateLock();
+
+  // # shutdown clock
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asClock_enable[0].ulEnable = disableValueClocks;
 
   if( ulResult && 1 << pin_gpio0_in){
