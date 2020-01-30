@@ -58,8 +58,8 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   ptAsicCtrlArea->asIo_config[2].ulConfig = io_config2_sel_i2c0_com_wm;
   // read I2C pio
   unsigned long ulResultI2C = ptI2cArea->ulI2c_pio;
-  volatile unsigned long ulResultI2C_sda = (MSK_NX90_i2c_pio_sda_in_ro & ulResultI2C) >> MSK_NX90_i2c_pio_sda_in_ro;
-  volatile unsigned long ulResultI2C_scl = (MSK_NX90_i2c_pio_scl_in_ro & ulResultI2C) >> MSK_NX90_i2c_pio_scl_in_ro;
+  volatile unsigned long ulResult_COM_IO1 = (MSK_NX90_i2c_pio_sda_in_ro & ulResultI2C) >> SRT_NX90_i2c_pio_sda_in_ro; // i2c_com_sda, 0x40
+  volatile unsigned long ulResult_COM_IO0 = (MSK_NX90_i2c_pio_scl_in_ro & ulResultI2C) >> SRT_NX90_i2c_pio_scl_in_ro; // i2c_com_scl, scl, 0x04
 
 
   //io_config0 activate PY-LED (xm0_io1 - working :)
@@ -78,12 +78,13 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   ptAsicCtrlArea->asClock_enable[0].ulEnable = enableValueClocks;
   
   // # Retrieve values
-  volatile unsigned long ulResult_TXD1 = ( ptXc0Xmac0RegsArea->ulXmac_status_shared0 & MSK_NX90_xmac_status_shared0_gpio2_in_phy_led0 ) >> SRT_NX90_xmac_status_shared0_gpio2_in_phy_led0; // to get the first.
+  volatile unsigned long ulResult_XM0_IO1 = ( ptXc0Xmac0RegsArea->ulXmac_status_shared0 & MSK_NX90_xmac_status_shared0_gpio1_in ) >> SRT_NX90_xmac_status_shared0_gpio1_in; // to get the first.
   
 
   // # shutdown clock
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asClock_enable[0].ulEnable = disableValueClocks;
+
 
   /*
   XM0_IO1 | COM_IO1 | COM_IO0
@@ -101,14 +102,32 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   */
 
   // # do some evaluation, later edvanced matrix. 
-  if( ulResult && 1 << pin_gpio0_in){
-    ucResult |= 1<<0;
-  }
-  if( ulResult && 1 << pin_gpio4_in_phy_led2){
-    ucResult |= (unsigned char) (1<<1 );
-  }
-  if( ulResult && 1 << pin_gpio5_in_phy_led3){
-    ucResult |= (unsigned char)1<<2 & 0xff;
+  if(ulResult_XM0_IO1){
+    if(ulResult_COM_IO1){
+      if(ulResult_COM_IO0){
+        // => CC-Link   (0x70)
+        ucResult = 0x70;
+      }else{
+        // => DeviceNet (0x40)
+        ucResult = 0x40;
+      }
+    }else{
+      if(ulResult_COM_IO0){
+        // => Profibus (0x50)
+        ucResult = 0x50;
+      }else{
+        // => CAN open (0x30)
+        ucResult = 0x30;
+      }
+    }
+  }else{
+    // NOT XM0_IO1
+    if(!ulResult_COM_IO0 && !ulResult_COM_IO1 ){
+      // => RTE connector (0x80)
+      ucResult = 0x80;
+    }else{
+      ucResult = 0x00; // error
+    }
   }
 
   /* Write the value to the pointer. */
