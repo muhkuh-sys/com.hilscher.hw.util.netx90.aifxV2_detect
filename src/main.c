@@ -52,24 +52,22 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   volatile unsigned long ulResultMMIO = (unsigned long *) Adr_NX90_mmio_ctrl_mmio2_cfg; // do it more nicely
   */
 
-  //io_config0 activate PY-LED (xm0_io1 - working :)
-  // here the internal phy is selected!
-  unsigned long config_asic_ctrl_mux = 2 << SRT_NX90_io_config0_sel_xm0_io; // enable mux xm0_io1 (working)
-  unsigned long config_asic_ctrl_mux_wm = config_asic_ctrl_mux | config_asic_ctrl_mux << 16;  // todo: komplete mask from regdef from 3 to 8
-  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
-  ptAsicCtrlArea->asIo_config[0].ulConfig = config_asic_ctrl_mux_wm;
-
-
   // # I2C unit: io_config2  0xff401210 sel_i2c0_com_wm, sel_i2c0_com MUXen
   unsigned long io_config2_sel_i2c0_com_wm = MSK_NX90_io_config2_sel_i2c0_com | MSK_NX90_io_config2_sel_i2c0_com_wm;
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asIo_config[2].ulConfig = io_config2_sel_i2c0_com_wm;
   // read I2C pio
   unsigned long ulResultI2C = ptI2cArea->ulI2c_pio;
-  volatile unsigned long ulResultI2C_sda = (MSK_NX90_i2c_pio_sda_in_ro & ulResultI2C) && ulResultI2C; // && makes it true or false.
-  volatile unsigned long ulResultI2C_scl = (MSK_NX90_i2c_pio_scl_in_ro & ulResultI2C) && ulResultI2C;
+  volatile unsigned long ulResultI2C_sda = (MSK_NX90_i2c_pio_sda_in_ro & ulResultI2C) >> MSK_NX90_i2c_pio_sda_in_ro;
+  volatile unsigned long ulResultI2C_scl = (MSK_NX90_i2c_pio_scl_in_ro & ulResultI2C) >> MSK_NX90_i2c_pio_scl_in_ro;
 
 
+  //io_config0 activate PY-LED (xm0_io1 - working :)
+  // here the internal phy is selected!
+  unsigned long config_asic_ctrl_mux = 2 << SRT_NX90_io_config0_sel_xm0_io; // enable mux xm0_io1 (working)
+  unsigned long config_asic_ctrl_mux_wm = config_asic_ctrl_mux | config_asic_ctrl_mux << 16;  // todo: komplete mask from regdef from 3 to 8
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptAsicCtrlArea->asIo_config[0].ulConfig = config_asic_ctrl_mux_wm;
 
   // # clock
   // ## Setup clock commands, disable/enable  
@@ -80,12 +78,27 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   ptAsicCtrlArea->asClock_enable[0].ulEnable = enableValueClocks;
   
   // # Retrieve values
-  volatile unsigned long ulResult = ( ptXc0Xmac0RegsArea->ulXmac_status_shared0 & 0x2 ) >> 1; // to get the first.
+  volatile unsigned long ulResult_TXD1 = ( ptXc0Xmac0RegsArea->ulXmac_status_shared0 & MSK_NX90_xmac_status_shared0_gpio2_in_phy_led0 ) >> SRT_NX90_xmac_status_shared0_gpio2_in_phy_led0; // to get the first.
   
 
   // # shutdown clock
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asClock_enable[0].ulEnable = disableValueClocks;
+
+  /*
+  XM0_IO1 | COM_IO1 | COM_IO0
+  ------------------------------
+   0      | x       | x        | => RTE connector (0x80)
+  ------------------------------
+   1      | 0       | 0        | => CAN open (0x30)
+  ------------------------------
+   1      | 0       | 1        | => Profibus (0x50)
+  ------------------------------
+   1      | 1       | 0        | => DeviceNet (0x40)
+  ------------------------------
+   1      | 1       | 1        | => CC-Link   (0x70)
+  ------------------------------
+  */
 
   // # do some evaluation, later edvanced matrix. 
   if( ulResult && 1 << pin_gpio0_in){
