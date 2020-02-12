@@ -5,7 +5,7 @@
 
 
 
-void start(unsigned char *pucResult, unsigned long ulIndexRotaryMmios);
+void start(uint16_t * pusResult);
 
 /**
  * @brief The next command may change a protected register
@@ -18,10 +18,10 @@ inline void activateLock( void ){
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
 }
 
-void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, unsigned long ulIndexRotaryMmios)
+void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
 {
-  unsigned char ucResult;
-  ucResult = 0;
+  uint16_t usResult;
+  usResult = 0x55aa;
 
   #if ASIC_TYP==ASIC_TYP_NETX90
 
@@ -99,6 +99,9 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
   ------------------------------
    1      | 1       | 1        | => CC-Link   (0x70)
   ------------------------------
+  0 pin low
+  1 ping high
+  x pin state does not matter
   */
 
   // # do some evaluation, later edvanced matrix. 
@@ -106,30 +109,27 @@ void __attribute__ ((section (".init_code"))) start(unsigned char *pucResult, un
     if(ulResult_COM_IO1){
       if(ulResult_COM_IO0){
         // => CC-Link   (0x70)
-        ucResult = 0x70;
+        usResult = 0x70;
       }else{
         // => DeviceNet (0x40)
-        ucResult = 0x40;
+        usResult = 0x40;
       }
     }else{
       if(ulResult_COM_IO0){
         // => Profibus (0x50)
-        ucResult = 0x50;
+        usResult = 0x50;
       }else{
         // => CAN open (0x30)
-        ucResult = 0x30;
+        usResult = 0x30;
       }
     }
   }else{
     // NOT XM0_IO1
-    if(!ulResult_COM_IO0 && !ulResult_COM_IO1 ){
-      // => RTE connector (0x80)
-      ucResult = 0x80;
-    }else{
-      ucResult = 0x00; // error
-    }
+    // usResult = 0x80;
+    usResult = 0x80;
   }
 
   /* Write the value to the pointer. */
-  *pucResult = ucResult;
+  *pusResult = usResult;
+  //*pusResult = 0x55aa;
 }

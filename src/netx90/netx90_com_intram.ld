@@ -66,12 +66,12 @@ SECTIONS
 		PROVIDE ( stack_top = . );
 	} >INTRAM
 
-
+/* ARB
 	.iflash ORIGIN(IFLASH) :
 	{
 		PROVIDE ( tAppCpuIntflashImage = . );
 	} > IFLASH
-
+*/
 	/* Stabs debugging sections.  */
 	.stab          0 : { *(.stab) }
 	.stabstr       0 : { *(.stabstr) }
