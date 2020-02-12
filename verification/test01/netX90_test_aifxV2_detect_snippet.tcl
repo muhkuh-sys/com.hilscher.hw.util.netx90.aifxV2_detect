@@ -54,7 +54,9 @@ proc s_train {} {
 
 set debug 0
 set bp_netx90_rev1_first_romloader 0x170a2
-set path_snippet_bin "C:/project/com.hilscher.hw.util.netx90.aifxV2_detect_mod/v3/com.hilscher.hw.util.netx90.aifxV2_detect/targets/netx90_com_intram/aifxv2_detect_snippet_netx90_com_intram.bin"
+# build snippet with `python2.7 mbs/mbs`
+set path_snippet_bin "../../targets/netx90_com_intram/aifxv2_detect_snippet_netx90_com_intram.bin"
+set hboot_image_with_exec_wait_for_event "./bin/top_while1.bin"
 set cmd_rec_jump_loop 0xBF00E7FE
 # ruecksprung aus snippet auf andere adresse. 
 set intram1_start_addr 0x00040000
@@ -71,7 +73,14 @@ proc reset_device {} {
     global intram1_start_addr
     global cmd_rec_jump_loop
     global intram3_start_addr
+    global hboot_image_with_exec_wait_for_event
     halt
+
+	  echo "########"
+	  echo "run: reset_device"
+	  echo "########"
+
+
     # bp address from : https://kb.hilscher.com/x/ghMWBg (netX90 rev1)
     # bp 0x170a2 4 hw
     # bp ... 2 -> for 16buit thumb code ( assumption )
@@ -80,9 +89,8 @@ proc reset_device {} {
     #---
 
     # set romcode_look_up_addr 0x20080000
-    # load hboot image with jump to "wait-for-event-loop"
-    # TODO: Set path here!
-    # load_image $hboot_image_with_exec_wait_for_event $intram3_start_addr bin
+    echo "load hboot image with jump to wait-for-event-loop: $hboot_image_with_exec_wait_for_event"
+    load_image $hboot_image_with_exec_wait_for_event $intram3_start_addr bin
     
     # reset temporary ROM loader parameter inside register asic_ctrl.only_porn_rom 0xff0016b8
     # Modify access key protected register
@@ -133,30 +141,37 @@ proc reset_device {} {
 
 
 
-#\brief
-#\ param addr_result 32bit target address to write to the 16bit hardware assembly option
+# \brief run a single test.
+# \details test expects to have a netX90 waiting. netX90 should not have executed any chunks.
+#  it is expected to run the reset_device function before the first test
+#  After execution the netX90 returns to the prepared endlessloop, where a breakpoint is also set.
+#  this method allows the wrapper run_test to call this function several times.
+#  Test depends on the testbinary compiled with the mbs.
+# \param addr_result 32bit target address to write to the 16bit hardware assembly option
 proc testcase_for_single_state { value_to_set addr_result  } {
     global debug
     global intram1_start_addr
     global path_snippet_bin
     global cmd_rec_jump_loop
 
+    echo "start snippet"
+
     # addr from linker skript
     set snippet_load_address 0x000200C0
     # addr from snippet.xml (or elf file)
 
-    # write something into the result register
-    mwh $addr_result 0xaffe
 
+    # the snippet exec address is in the flashed snipped. It differs from the flash addr of the snippet.
+    #   fint the correct address in the disassembly.txt of the snippet
     set snippet_exec_address 0x000200dc
     
     # download snippet to netX
     load_image $path_snippet_bin $snippet_load_address bin
     
-    # stack decreases when advancing
+    # stack decreases when advancing decreased by some bytes for the endless-loop
     set start_of_stack 0x3FFF0
 	
-      # set mode of xcpr ( alter cpu status ) 
+    # set mode of xcpr to default, telling spu to execute thumbcode. See arm arm manual for more details.
     reg xPSR 0x01000000
     # set stack pointer to the start of the stack, to give the snippet a valid stack.
     reg sp $start_of_stack 
@@ -166,13 +181,19 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     # set return address, where breakpoint waits for return of snippet
       # the +1 indicates thumb code
     reg lr [expr {$intram1_start_addr + 1}]
+    
     # Set breakpoint, Current Program Status Register(cpsr), Stack Pointer and Link Register
-    # set brekpoint to 
+    # set brekpoint to the loop. After test lr returns to this loop, chought by breakpoint and openOCD is returned to
+    # execute the new test. The execution has to stop for openOCD to take control again.
     bp $intram1_start_addr 2 hw
     
     reg pc
     if { $debug } { bp }
     if { $debug } { reg }
+    
+    # ## begin with test
+    # write something into the result register. If you can read this after test, the test might have stuck in a exception or a breakpoint.
+    mwh $addr_result 0xaffe
     
     echo ""
 	  echo "########"
@@ -185,17 +206,10 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 	  # Set config register: ro => address where to store the result.
 	  reg r0 $addr_result
   
-	  # Start snippet
-	  # echo "Resume $snippet_exec_address"
-	  
-    # may or may not work...
-    # resume $snippet_exec_address
-    # bp 0x201fc 2 hw
 	  reg pc $snippet_exec_address
     # execute the prepared snipped, return to lr addr. into endlessloop!
-    #resume
+
     resume
-    # wait_halt 
 
     # wait until controller halts, until the snipped returns, to intram1_start_addr, where bp is
 	  sleep 10
@@ -206,12 +220,13 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     echo ""
     echo "########"
     echo "### finished snippet !!!"
-    echo "########"   
+    echo "########"
 }
 
 proc run_test { } {
   global handoveraddr_mnetx90
 
+  # iteration over this array may not
   # input expected
   # XM0_IO1  COM_IO1  COM_IO0
   array set input_reference {
@@ -266,20 +281,10 @@ proc run_test { } {
   
 }
 
-proc playing { } {
-  array set colors {
-    red   #ff0000
-    green #00ff00
-    blue  #0000ff
-  }
-  set i 0
-  foreach name [array names colors] {
-      set i [expr {$i + 1}]
-      puts "\($i / 3 \)$name is $colors($name)"
-  }
-}
 
-proc play2 { } {
+# \brief Testfunction for arrays
+# \details Note, that the order is not the same as input in the array.
+proc play_with_arrays { } {
   array set colors {
     0x000 0x80
     0x001 0x80
@@ -293,9 +298,9 @@ proc play2 { } {
   foreach name [array names colors] {
       puts "$name is $colors($name)"
   }
-
 }
 
+# \brief run a single test case with default parameters
 proc run_single_test { } {
   # bp at end of snippet
   # bp 0x201fe 2 hw

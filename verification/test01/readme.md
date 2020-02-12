@@ -40,3 +40,8 @@ The netX is resetted. The test stsarts and the user is asked to input the correc
      1      | 1       | 0        | => DeviceNet (0x40)
     ------------------------------
      1      | 1       | 1        | => CC-Link   (0x70)
+
+# links
+issue can be found at:
+    
+    https://ticket.hilscher.com/browse/NXTHWCONFI-133
