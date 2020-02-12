@@ -1,7 +1,7 @@
 REM set OPENOCD_BIN=openocd-0.10.0\bin\openocd.exe
 set OPENOCD_BIN=openocd-0.10.0-dev.exe
 
-set OPENOCD_ATTACH_COM=hilscher_nxhx90_jtag_com_attach.cfg
+set OPENOCD_ATTACH_COM=netX90_test_aifxV2_detect_snippet.tcl
 
 REM read log data from netX 90
 %OPENOCD_BIN% -f %OPENOCD_ATTACH_COM% 
