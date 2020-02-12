@@ -12,3 +12,7 @@
 
 # Ignores the build data of sniplib
 .sniplib.dblite
+
+
+# ignore projects
+.vscode
