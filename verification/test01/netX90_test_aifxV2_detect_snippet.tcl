@@ -283,6 +283,7 @@ proc run_test { } {
   } else {
     s_err
     echo "Test failed! failed: \($num_errors\) passed:\($num_ok\)"
+    shutdown error
   }
   
 }
