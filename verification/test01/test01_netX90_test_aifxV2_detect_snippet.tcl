@@ -56,7 +56,7 @@ set debug 0
 set bp_netx90_rev1_first_romloader 0x170a2
 # build snippet with `python2.7 mbs/mbs`
 set path_snippet_bin "../../targets/netx90_com_intram/aifxv2_detect_snippet_netx90_com_intram.bin"
-set hboot_image_with_exec_wait_for_event "./bin/top_while1.bin"
+set hboot_image_with_exec_wait_for_event "../comon/bin/top_while1.bin"
 set cmd_rec_jump_loop 0xBF00E7FE
 # ruecksprung aus snippet auf andere adresse. 
 set intram1_start_addr 0x00040000
