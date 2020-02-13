@@ -82,10 +82,11 @@ proc reset_device {} {
 	  echo "########"
 
 
+    # for debugging purpose, stop before execution of exec chunk
     # bp address from : https://kb.hilscher.com/x/ghMWBg (netX90 rev1)
-    # bp 0x170a2 4 hw
+    # bp 0x170a2 2 hw
     # bp ... 2 -> for 16buit thumb code ( assumption )
-    bp $bp_netx90_rev1_first_romloader 2 hw
+    # bp $bp_netx90_rev1_first_romloader 2 hw
     
 
     #---
@@ -139,7 +140,7 @@ proc reset_device {} {
     sleep 500
 
     
-    echo "expect to be at $bp_netx90_rev1_first_romloader"
+    echo "expect to be at $addr_romloader_while1_loop"
     reg pc
     # todo: compare position
      
