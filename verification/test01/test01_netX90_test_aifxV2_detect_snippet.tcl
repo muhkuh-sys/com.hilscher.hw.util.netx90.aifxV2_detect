@@ -63,7 +63,9 @@ set intram1_start_addr 0x00040000
 #at internal RAM INTRAM3_S at location 0x2008 0000
 set intram3_start_addr 0x20080000
 
-set handoveraddr_netx90 0x0002024a
+# There are two interfaces on each netX, so we need two hand over params
+set handoveraddr_netx90_0 0x0002024a
+set handoveraddr_netx90_1 [expr {$handoveraddr_netx90_0 + 2}]
 
 #--- Reset function
 # \brief reset netX 90 
@@ -229,41 +231,56 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 }
 
 proc run_test { } {
-  global handoveraddr_netx90
+  global handoveraddr_netx90_0
+  global handoveraddr_netx90_1
 
   # iteration over this array may not
   # input expected
   # XM0_IO1  COM_IO1  COM_IO0
-  array set input_reference {
-    0x000 0x80
-    0x001 0x80
-    0x010 0x80
-    0x011 0x80
-    0x100 0x30
-    0x101 0x50
-    0x110 0x40
-    0x111 0x70
+array set input_reference0 {
+    0x000 0x0080
+    0x001 0x0080
+    0x010 0x0080
+    0x011 0x0080
+    0x100 0x0030
+    0x101 0x0050
+    0x110 0x0040
+    0x111 0x0070
+  }
+  array set input_reference1 {
+    0x000 0x0080
+    0x001 0x0080
+    0x010 0x0080
+    0x011 0x0080
+    0x100 0x0000
+    0x101 0x0000
+    0x110 0x0000
+    0x111 0x0000
   }
   
   set i 0
   set num_errors 0
   set num_ok 0
-  foreach exp_input [array names input_reference] {
-    # reset geister
+  foreach exp_input [lsort [array names input_reference0]] {
+    # inc loop counter for convinience
     set i [expr {$i + 1}]
     # reset the register
-    mwh $handoveraddr_netx90 0xE5E1
+    mwh $handoveraddr_netx90_0 0xE5E1
+    mwh $handoveraddr_netx90_1 0xE5E1
     # init loop var for readabilety
-    set exp_outcome $input_reference($exp_input)
-    puts "\($i of 8\) ... $exp_input is $exp_outcome"
+    set exp_outcome0 $input_reference0($exp_input)
+    set exp_outcome1 $input_reference1($exp_input)
+    puts "\($i of 8\) ... $exp_input is $exp_outcome0 and $exp_outcome1"
+    
     # run single test
-    testcase_for_single_state $exp_input $handoveraddr_netx90
+    testcase_for_single_state $exp_input $handoveraddr_netx90_0
 
     # retrieve return value of single test
-    set real_outcome [read_data16 $handoveraddr_netx90]
-    echo "user input $exp_input exp. result: $exp_outcome, outcome: $real_outcome"
+    set real_outcome0 [read_data16 $handoveraddr_netx90_0]
+    set real_outcome1 [read_data16 $handoveraddr_netx90_1]
+    echo "user input $exp_input exp. result: $exp_outcome0 / $exp_outcome1, outcome: $real_outcome0 / $real_outcome1"
     # compare the returnvalue with expected result
-    if { $exp_outcome == $real_outcome } { \
+    if { $exp_outcome0 == $real_outcome0 && $exp_outcome1 == $real_outcome1 } { \
       echo "user input $exp_input OK!"
       set num_ok [expr {$num_ok + 1}]
       s_ok
@@ -361,6 +378,7 @@ reset_device
 # testcase_for_single_state 0x2 $handoveraddr_netx90
 
 run_test
+#play_with_arrays2
 
 
 echo "remove '-c shutdown' - command in *.bat, if you want to connect to debugging session via telnet. (127.0.0.1:4444)"
