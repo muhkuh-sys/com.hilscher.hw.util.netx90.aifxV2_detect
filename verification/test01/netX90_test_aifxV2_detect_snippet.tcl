@@ -63,7 +63,7 @@ set intram1_start_addr 0x00040000
 #at internal RAM INTRAM3_S at location 0x2008 0000
 set intram3_start_addr 0x20080000
 
-set handoveraddr_mnetx90 0x0002024a
+set handoveraddr_netx90 0x0002024a
 
 #--- Reset function
 # \brief reset netX 90 
@@ -93,11 +93,11 @@ proc reset_device {} {
     load_image $hboot_image_with_exec_wait_for_event $intram3_start_addr bin
     
     # reset temporary ROM loader parameter inside register asic_ctrl.only_porn_rom 0xff0016b8
+    # Effect: clear history of romloader. Kind of a "next job register"
     # Modify access key protected register
     # read write access control
-    # data.set ASD:0xff4012c0 %LONG data.long(ASD:0xff4012c0)
-    # data.set ASD:0xff0016b8 %LONG (0x0)
     mww 0xff4012c0 [read_data32 0xff4012c0]
+    # Romloader is resetted, will start from very begin e.g. start like power on reset (PORN)
     mww 0xff0016b8 0x0
     
     # Idea, set the controller into a endless loop, so it may run
@@ -108,7 +108,7 @@ proc reset_device {} {
     ## following programm rec jump + nop ...
     # Does not work over the reset! also probably a boot sequence is active.
     # Place the while loop during the test
-    # mww $intram1_start_addr $cmd_rec_jump_loop
+    mww $intram1_start_addr $cmd_rec_jump_loop
 
 
     ## set PC into endless loop
@@ -123,9 +123,8 @@ proc reset_device {} {
     echo "Show registers"
     reg
     #// reset is only allowed, if CPU is running
-    #go
-
     resume
+    # should now run in the endless loop at intram1_start_addr expecting the reset
 
     # restart netX by reset via internal reset initiated by external signal of COM CM4
     reset
@@ -133,8 +132,11 @@ proc reset_device {} {
     echo "*** wait 0.5 second for reset to take action"
     sleep 500
 
+    
     echo "expect to be at $bp_netx90_rev1_first_romloader"
     reg pc
+    # todo: compare position
+
 
     # device is now in defined state at the first possible pc, where to hold
 }
@@ -156,20 +158,22 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 
     echo "start snippet"
 
+    # ---------------------------------- configure test -----------------------------------------------------
     # addr from linker skript
     set snippet_load_address 0x000200C0
     # addr from snippet.xml (or elf file)
 
-
     # the snippet exec address is in the flashed snipped. It differs from the flash addr of the snippet.
     #   fint the correct address in the disassembly.txt of the snippet
     set snippet_exec_address 0x000200dc
-    
+
+    # stack decreases when advancing decreased by some bytes for the endless-loop
+    set start_of_stack 0x3FFF0
+
+    # ---------------------------------- execute test--------------------------------------------------------    
     # download snippet to netX
     load_image $path_snippet_bin $snippet_load_address bin
     
-    # stack decreases when advancing decreased by some bytes for the endless-loop
-    set start_of_stack 0x3FFF0
 	
     # set mode of xcpr to default, telling spu to execute thumbcode. See arm arm manual for more details.
     reg xPSR 0x01000000
@@ -177,7 +181,7 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     reg sp $start_of_stack 
 
     # init a small endlessloop recjump + nop
-    mww $intram1_start_addr $cmd_rec_jump_loop  
+    mww $intram1_start_addr $cmd_rec_jump_loop
     # set return address, where breakpoint waits for return of snippet
       # the +1 indicates thumb code
     reg lr [expr {$intram1_start_addr + 1}]
@@ -212,7 +216,8 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     resume
 
     # wait until controller halts, until the snipped returns, to intram1_start_addr, where bp is
-	  sleep 10
+	  # sleep 10
+    wait_halt
     
     # todo: double check position
     if { $debug } { echo "expect to be at $intram1_start_addr pc:" }
@@ -224,7 +229,7 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 }
 
 proc run_test { } {
-  global handoveraddr_mnetx90
+  global handoveraddr_netx90
 
   # iteration over this array may not
   # input expected
@@ -247,15 +252,15 @@ proc run_test { } {
     # reset geister
     set i [expr {$i + 1}]
     # reset the register
-    mwh $handoveraddr_mnetx90 0xE5E1
+    mwh $handoveraddr_netx90 0xE5E1
     # init loop var for readabilety
     set exp_outcome $input_reference($exp_input)
     puts "\($i of 8\) ... $exp_input is $exp_outcome"
     # run single test
-    testcase_for_single_state $exp_input $handoveraddr_mnetx90
+    testcase_for_single_state $exp_input $handoveraddr_netx90
 
     # retrieve return value of single test
-    set real_outcome [read_data16 $handoveraddr_mnetx90]
+    set real_outcome [read_data16 $handoveraddr_netx90]
     echo "user input $exp_input exp. result: $exp_outcome, outcome: $real_outcome"
     # compare the returnvalue with expected result
     if { $exp_outcome == $real_outcome } { \
@@ -273,7 +278,8 @@ proc run_test { } {
   if { $num_errors == 0 } { \
     echo "All test passed!"
     echo "failed: \($num_errors\) passed:\($num_ok\)"
-    s_train  
+    s_ok
+    s_train
   } else {
     s_err
     echo "Test failed! failed: \($num_errors\) passed:\($num_ok\)"
@@ -304,31 +310,27 @@ proc play_with_arrays { } {
 proc run_single_test { } {
   # bp at end of snippet
   # bp 0x201fe 2 hw
-  global handoveraddr_mnetx90
-  testcase_for_single_state 0x2 $handoveraddr_mnetx90
-  mdh $handoveraddr_mnetx90
+  global handoveraddr_netx90
+  testcase_for_single_state 0x2 $handoveraddr_netx90
+  mdh $handoveraddr_netx90
 }
 
 
 
 # Attach to to the COM CPU on an NXHX90-JTAG (netX90) board using the onboard USB-JTAG interface.
 
+# import config of JTAG dongle (NXJTAG-USB)
 source [find interface/hilscher_nxjtag_usb.cfg]
-# source [find interface/hilscher_nxhx90-jtag.cfg]
-# source [find interface/hilscher_nrpeb_h90-re.cfg]
-
+# import config of netX90-com-CPU
 source [find target/hilscher_netx90_com.cfg]
 init
 
-# ARB:
 reset_device
 
-# run_test
-# todo: wrap into loop for iteration over all 8 test cases
-
 # single test
-#testcase_for_single_state 0x2 $handoveraddr_mnetx90
-# run_single_test
+# testcase_for_single_state 0x2 $handoveraddr_netx90
+
 run_test
-shutdown
-# echo "Please connect over telnet..."
+
+
+echo "remove '-c shutdown' - command in *.bat, if you want to connect to debugging session via telnet. (127.0.0.1:4444)"
