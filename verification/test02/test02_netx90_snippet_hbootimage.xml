@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
 <HBootImage type="REGULAR">
 	<Chunks>
-		<Snip artifact="aifxv2_detect" group="com.hilscher.hw.util.netx90" version="0.0.1">
+		<Snip artifact="aifxv2_detect" group="com.hilscher.hw.util.netx90" version="1.0.0">
 			<Parameter name="TARGET_ADDRESS">0x0002024a</Parameter>
 		</Snip>
+        <!--- activate_debugging="true" mandatory for activating debugging during test! -->
         <Execute start_app="false" lock_firewall="false" activate_debugging="true" apply_firewall_settings="false">
             <Address>While1_Loop</Address>
         </Execute>
