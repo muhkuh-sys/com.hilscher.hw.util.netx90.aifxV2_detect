@@ -292,19 +292,48 @@ proc run_test { } {
 # \brief Testfunction for arrays
 # \details Note, that the order is not the same as input in the array.
 proc play_with_arrays { } {
+  echo "start"
   array set colors {
-    0x000 0x80
-    0x001 0x80
-    0x010 0x80
-    0x011 0x80
-    0x100 0x30
-    0x101 0x50
-    0x110 0x40
-    0x111 0x70
+    0x000 0x0080a
+    0x001 0x0080b
+    0x010 0x0080c
+    0x011 0x0080d
+    0x100 0x0030e
+    0x101 0x0050f
+    0x110 0x0040g
+    0x111 0x0070h
   }
-  foreach name [array names colors] {
+  array set colors2 {
+    0x000 0x0080a
+    0x001 0x0080b
+    0x010 0x0080c
+    0x011 0x0080d
+    0x100 0x0000e
+    0x101 0x0000f
+    0x110 0x0000g
+    0x111 0x0000h
+  }
+  foreach name [lsort [array names colors]] {
+      puts "-----------------------"
       puts "$name is $colors($name)"
+      puts "$colors2($name)"
   }
+  echo "end"
+}
+
+proc play_with_arrays2 { } {
+  echo "start"
+  array set colors {
+    0x000 [ array 0x0080a 0x89a ]
+    0x001 [ array 0x0080b 0x89b ]
+    0x010 [ array 0x0080b 0x89b ]
+  }
+  foreach name [lsort [array names colors]] {
+      puts "-----------------------"
+      puts "$name is $colors($name)"
+      
+  }
+  echo "end"
 }
 
 # \brief run a single test case with default parameters
