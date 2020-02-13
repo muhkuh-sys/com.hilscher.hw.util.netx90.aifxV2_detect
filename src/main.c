@@ -5,7 +5,7 @@
 
 
 
-void start(uint16_t * pusResult);
+void start(uint16_t * pusResult0);
 
 /**
  * @brief The next command may change a protected register
@@ -20,8 +20,9 @@ inline void activateLock( void ){
 
 void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
 {
-  uint16_t usResult;
-  usResult = 0x55aa;
+  uint16_t usResult0 = 0x55aa;
+  uint16_t usResult1 = 0x2222;
+  
 
   #if ASIC_TYP==ASIC_TYP_NETX90
 
@@ -109,27 +110,34 @@ void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
     if(ulResult_COM_IO1){
       if(ulResult_COM_IO0){
         // => CC-Link   (0x70)
-        usResult = 0x70;
+        usResult0 = 0x0070;
+        usResult1 = 0x0000;
       }else{
         // => DeviceNet (0x40)
-        usResult = 0x40;
+        usResult0 = 0x0040;
+        usResult1 = 0x0000;
       }
     }else{
       if(ulResult_COM_IO0){
         // => Profibus (0x50)
-        usResult = 0x50;
+        usResult0 = 0x0050;
+        usResult1 = 0x0000;
       }else{
         // => CAN open (0x30)
-        usResult = 0x30;
+        usResult0 = 0x0030;
+        usResult1 = 0x0000;
       }
     }
   }else{
     // NOT XM0_IO1
-    // usResult = 0x80;
-    usResult = 0x80;
+    // usResult0 = 0x80;
+    usResult0 = 0x0080;
+    usResult1 = 0x0080;
   }
 
   /* Write the value to the pointer. */
-  *pusResult = usResult;
-  //*pusResult = 0x55aa;
+  *pusResult = usResult0;
+  pusResult ++;
+  *pusResult = usResult1;
+  //*pusResult0 = 0x55aa;
 }
