@@ -82,7 +82,7 @@ atSnippet90 = {
     'license': 'GPL-2.0',
     'author_name': 'Muhkuh team',
     'author_url': 'https://github.com/muhkuh-sys',
-    'description': 'Read ID from AIFX module available on netX90',
+    'description': 'Read ID from AIFX V2 module available on netX90',
     'categories': ['netx90', 'booting'],
     'parameter': {
         'TARGET_ADDRESS': {'help': 'Address to write to the ID from the connected AIFX V2 module.'}
@@ -98,4 +98,5 @@ tPOM90 = tEnv90.POMTemplate('%s/%s-%s.pom' % (strArtifactPath90, atSnippet90['ar
 
 
 # Create binaries for verification
-##hboot_netx4000_test02 = tEnv4000.HBootImage('targets/verification/test02/test_snippet_netx4000_rotary.bin', 'verification/test02/test_snippet_netx4000_rotary.xml')
+test02_netx90_snippet_hbootimage = tEnv90.HBootImage('targets/verification/test02/test02_netx90_snippet_hbootimage.bin', 'verification/test02/test02_netx90_snippet_hbootimage.xml')
+
