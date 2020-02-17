@@ -100,17 +100,18 @@ void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
 
 
   /*
-  XM0_IO1 | COM_IO1 | COM_IO0
+  Output ist two interfaces, only RealTimeethernet has two ports. 
+  XM0_IO1 | COM_IO1 | COM_IO0    => (unit16_t * r0 , unit16_t * (r0 + 2) )
   ------------------------------
-   0      | x       | x        | => RTE connector (0x80)
+  0      | x       | x        | => RTE connector (0x0080, 0x0080)
   ------------------------------
-   1      | 0       | 0        | => CAN open (0x30)
+  1      | 0       | 0        | => CAN open (0x0030, 0x0000)
   ------------------------------
-   1      | 0       | 1        | => Profibus (0x50)
+  1      | 0       | 1        | => Profibus (0x0050, 0x0000)
   ------------------------------
-   1      | 1       | 0        | => DeviceNet (0x40)
+  1      | 1       | 0        | => DeviceNet (0x0040, 0x0000)
   ------------------------------
-   1      | 1       | 1        | => CC-Link   (0x70)
+  1      | 1       | 1        | => CC-Link   (0x0070, 0x0000)
   ------------------------------
   0 pin low
   1 ping high
