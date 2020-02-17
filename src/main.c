@@ -78,6 +78,18 @@ void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
   ptAsicCtrlArea->asClock_enable[0].ulEnable = enableValueClocks;
   
+  /**
+   * ARB: 17.02.2020
+   * Following single line is mandatory. It is necessary if you compile the release.
+   * During test, it was not possible to read in the next cycle from this unit the correct value.
+   * This unit is developed by hilscher internal and undocumented. Retrive more infos from group netX Design.
+   * For now, it's unclear, how long it's actually to wait. but rereading the value written, should give enough time.
+   * If you want to save this cycle, you can suffel some bitshifts in between. Say, first calculate confogbits for the
+   * unit, activate it, calculate the remaining bits for the unit and then assume that the unit is running and retrive the
+   * values.
+   */
+  volatile unsigned long buy_time_until_Xc_is_really_enabled = ptAsicCtrlArea->asClock_enable[0].ulEnable;
+  
   // # Retrieve values
   volatile unsigned long ulResult_XM0_IO1 = ( ptXc0Xmac0RegsArea->ulXmac_status_shared0 & MSK_NX90_xmac_status_shared0_gpio1_in ) >> SRT_NX90_xmac_status_shared0_gpio1_in; // to get the first.
   
