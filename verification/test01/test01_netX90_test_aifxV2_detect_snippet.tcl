@@ -65,7 +65,9 @@ set intram3_start_addr 0x20080000
 
 # There are two interfaces on each netX, so we need two hand over params
 set handoveraddr_netx90_0 0x0002024a
+set handoveraddr_netx90_before  [expr {$handoveraddr_netx90_0 - 2}]
 set handoveraddr_netx90_1 [expr {$handoveraddr_netx90_0 + 2}]
+set handoveraddr_netx90_after [expr {$handoveraddr_netx90_0 + 4}]
 
 #--- Reset function
 # \brief reset netX 90 
@@ -247,6 +249,14 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 proc run_test { } {
   global handoveraddr_netx90_0
   global handoveraddr_netx90_1
+  global handoveraddr_netx90_before
+  global handoveraddr_netx90_after
+  # this value will be written before and after the result value
+  set control_value 0x55aa
+  # write the control value in the bytes before and after the transfare area,
+  # this will control the write acces from the snippet.
+  mwh $handoveraddr_netx90_before $control_value
+  mwh $handoveraddr_netx90_after  $control_value
 
   # iteration over this array may not
   # input expected
