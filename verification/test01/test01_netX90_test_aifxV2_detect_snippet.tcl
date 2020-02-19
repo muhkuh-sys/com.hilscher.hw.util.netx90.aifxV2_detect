@@ -42,12 +42,12 @@ echo "                         "
 }
 
 proc s_train {} {
-  echo ""
-  echo "    ooOOOO"
-  echo "   oo      _____"
-  echo "  _I__n_n__||_|| ________"
-  echo ">(_________|_7_|-|______|"
-  echo " /o ()() ()() o   oo  oo"
+  echo "  "
+  echo "      ooOOOO"
+  echo "     oo      _____"
+  echo "    _I__n_n__||_|| ________"
+  echo "  >(_________|_7_|-|______|"
+  echo "   /o ()() ()() o   oo  oo"
   echo ""
 }
 
@@ -230,6 +230,20 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     echo "########"
 }
 
+
+
+# \brief Test the snippet if it does the correct work
+# \details two tests are applied
+# 1. 8 times a input is demanded and the input is controlled
+#    The snippet set's two consecutive half words ( 2 Bytes ) at provided
+#     Address via r0. half words before and after are after all snippets compared with
+#     the default value. For this test the controlled bytes will be overwritten and not
+#     restored.
+# 2. The output from test is written to a place in memory. It's controlled
+#    that the space in memory before and after is not overwritten.
+#    a default value is written to two bytes before and after the 
+#    handover address.
+# \todo: The test loads the image at every run from new. You could probably ommit this step.
 proc run_test { } {
   global handoveraddr_netx90_0
   global handoveraddr_netx90_1
@@ -290,24 +304,52 @@ array set input_reference0 {
       s_err
     }
   }
+
   echo "------------------------------------------------------------"
-  echo "total result:"
+  set err 0
+  echo "All test summary:"
+  # evaluate, if the boarders have been touched:
+  set real_before [read_data16 $handoveraddr_netx90_before]
+  set real_after [read_data16 $handoveraddr_netx90_after]
+  if { $control_value == $real_before } { \
+    echo "Posttest-befor ok!"
+  } else {
+    echo "ERROR: Reference area before the handover section has been altred during test!"
+    set err [expr {$err + 1}]
+  }
+  if { $control_value == $real_after } { \
+    echo "Posttest-after ok!"
+  } else {
+    echo "ERROR: Reference area after the handover section has been altred during test!"
+    set err [expr {$err + 1}]
+  }
+
+  # evaluate batch result
   if { $num_errors == 0 } { \
-    echo "All test passed!"
+    echo "Main test group: All test passed!"
     echo "failed: \($num_errors\) passed:\($num_ok\)"
     s_ok
     s_train
   } else {
+    echo "ERROR: Main test group: Tests failed! passed:\($num_ok\) failed: \($num_errors\)"
+    set err [expr {$err + 1}]
+  }
+
+  if { $err != 0} { \
+    echo "Return with error cause $err tests have failed."
     s_err
-    echo "Test failed! failed: \($num_errors\) passed:\($num_ok\)"
     shutdown error
   }
-  
 }
 
 
 # \brief Testfunction for arrays
 # \details Note, that the order is not the same as input in the array.
+# basically here are two arrays, actually dictionaries with a both the same
+# primary key. What is done here is 3 things:
+# 1. take the first array, order it for the primary keys which leads to 0x000 0x010 0x011...
+# 2. take the first primary key, and retrive with it the value from the second array.
+# 3. Have both values from bote array and you can be sure thy are the correct onse. 
 proc play_with_arrays { } {
   echo "start"
   array set colors {
@@ -338,6 +380,8 @@ proc play_with_arrays { } {
   echo "end"
 }
 
+# this has not worked as expected and is the explanation for the more complicated
+# way abouve
 proc play_with_arrays2 { } {
   echo "start"
   array set colors {
@@ -363,6 +407,21 @@ proc run_single_test { } {
 }
 
 
+proc test_odd { } {
+  set err 1
+  if { $err == 0 } { \
+    echo "Return with error cause $err tests have failed."
+  }
+  set err 2
+  if { $err != 0 } { \
+    echo "Return with error cause $err tests have failed."
+  }
+  set err 0
+  if { $err != 0 } { \
+    echo "Return with error cause $err tests have failed."
+  }
+}
+
 
 # Attach to to the COM CPU on an NXHX90-JTAG (netX90) board using the onboard USB-JTAG interface.
 
@@ -371,13 +430,12 @@ source [find interface/hilscher_nxjtag_usb.cfg]
 # import config of netX90-com-CPU
 source [find target/hilscher_netx90_com.cfg]
 init
-
 reset_device
+run_test
 
 # single test
 # testcase_for_single_state 0x2 $handoveraddr_netx90
-
-run_test
+#test_odd
 #play_with_arrays2
 
 
