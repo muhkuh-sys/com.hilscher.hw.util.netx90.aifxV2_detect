@@ -147,12 +147,22 @@ proc run_test_02 {} {
 
     set err 0
     echo "expect to be at $addr_romloader_while1_loop"
-    # dose not work: set reg_pc [ reg pc ] (remains empty
+    ocd_reg pc
+    set real_pc [lindex [ocd_reg pc] 2]
+
+    if { $addr_romloader_while1_loop == $real_pc } { \
+        echo "reg pc is correct! at $real_pc"
+    } else {
+        echo "ERROR: reg pc is at $real_pc but was expected at $addr_romloader_while1_loop"
+        s_err
+        shutdown error
+    }
     # todo: compare position
 
     # ---------------------------------- execute test--------------------------------------------------------    
     # download snippet to netX
     # todo: replace by a verify
+    # verify working verify: mww $snippet_load_address 0x12345678
     verify_image $path_snippet_bin $snippet_load_address bin
     
     echo "Verification succeeded!"
