@@ -43,11 +43,11 @@ echo "                         "
 
 proc s_train {} {
   echo ""
-  echo "    ooOOOO"
-  echo "   oo      _____"
-  echo "  _I__n_n__||_|| ________"
-  echo ">(_________|_7_|-|______|"
-  echo " /o ()() ()() o   oo  oo"
+  echo "      ooOOOO"
+  echo "     oo      _____"
+  echo "    _I__n_n__||_|| ________"
+  echo "  >(_________|_7_|-|______|"
+  echo "   /o ()() ()() o   oo  oo"
   echo ""
 }
 
@@ -68,7 +68,7 @@ set intram3_start_addr 0x20080000
 #--- Reset function
 # \brief reset netX 90 
 # \details procedure according to: https://kb.hilscher.com/x/GylbBg
-proc reset_device {} {
+proc run_test_02 {} {
     global bp_netx90_rev1_first_romloader
     global intram1_start_addr
     global cmd_rec_jump_loop
@@ -88,11 +88,17 @@ proc reset_device {} {
     # bp ... 2 -> for 16buit thumb code ( assumption )
     # bp $bp_netx90_rev1_first_romloader 2 hw
     
-
-    #---
-
+    # --------------------------------- configure test -----------------------------------------------------
+    # addr from linker skript
+    set snippet_load_address 0x000200C0
+    # addr from snippet.xml (or elf file)
     # set romcode_look_up_addr 0x20080000
+    set invalid_word 0xAFFEE5E1 
     echo "load hboot image with jump to wait-for-event-loop: $hboot_chunk_snippet_endless_loop"
+    # invalidate a image at this position
+    mww $snippet_load_address $invalid_word
+    mww $intram3_start_addr $invalid_word
+    # load new image
     load_image $hboot_chunk_snippet_endless_loop $intram3_start_addr bin
     
     # reset temporary ROM loader parameter inside register asic_ctrl.only_porn_rom 0xff0016b8
@@ -139,25 +145,18 @@ proc reset_device {} {
     echo "*** wait 0.5 second for reset to take action"
     sleep 500
 
-    
+    set err 0
     echo "expect to be at $addr_romloader_while1_loop"
-    reg pc
+    # dose not work: set reg_pc [ reg pc ] (remains empty
     # todo: compare position
-     
-    
-    
-
-    # ---------------------------------- configure test -----------------------------------------------------
-    # addr from linker skript
-    set snippet_load_address 0x000200C0
-    # addr from snippet.xml (or elf file)
 
     # ---------------------------------- execute test--------------------------------------------------------    
     # download snippet to netX
     # todo: replace by a verify
     verify_image $path_snippet_bin $snippet_load_address bin
     
-	
+    echo "Verification succeeded!"
+    	
     echo ""
     echo "########"
     echo "### finished test 02 !!!"
@@ -178,7 +177,10 @@ source [find interface/hilscher_nxjtag_usb.cfg]
 source [find target/hilscher_netx90_com.cfg]
 init
 
-reset_device
+run_test_02
+
+# the erify fails and returns script with 1. So if we've reached here, verify passed!
 s_ok
 s_train
+
 echo "remove '-c shutdown' - command in *.bat, if you want to connect to debugging session via telnet. (127.0.0.1:4444)"
