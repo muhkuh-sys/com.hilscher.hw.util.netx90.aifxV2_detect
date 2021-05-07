@@ -282,6 +282,20 @@ array set input_reference0 {
     0x111 0x0000
   }
   
+  set addr_asic_ctrl_access_key 0xff4012c0
+  set addr_reset_ctrl 0xff0016b0
+  set msk_reset_out 0x06000000
+  array set ref_reset_ctrl {
+    0x000 0x00000000
+    0x001 0x00000000
+    0x010 0x00000000
+    0x011 0x00000000
+    0x100 0x06000000 # CAN
+    0x101 0x00000000
+    0x110 0x06000000 # DeviceNet
+    0x111 0x00000000
+  }
+  
   set i 0
   set num_errors 0
   set num_ok 0
@@ -294,7 +308,12 @@ array set input_reference0 {
     # init loop var for readabilety
     set exp_outcome0 $input_reference0($exp_input)
     set exp_outcome1 $input_reference1($exp_input)
+    set exp_reset_out $ref_reset_ctrl($exp_input)
     puts "\($i of 8\) ... $exp_input is $exp_outcome0 and $exp_outcome1"
+    
+    # Disable reset_out_n in case the previous test has enabled it.
+    mww $addr_asic_ctrl_access_key [read_data32 $addr_asic_ctrl_access_key] 
+    mww $addr_reset_ctrl 0x0
     
     # run single test
     testcase_for_single_state $exp_input $handoveraddr_netx90_0
@@ -302,9 +321,12 @@ array set input_reference0 {
     # retrieve return value of single test
     set real_outcome0 [read_data16 $handoveraddr_netx90_0]
     set real_outcome1 [read_data16 $handoveraddr_netx90_1]
-    echo "user input $exp_input exp. result: $exp_outcome0 / $exp_outcome1, outcome: $real_outcome0 / $real_outcome1"
+    set real_reset_ctrl [read_data32 $addr_reset_ctrl]
+    set real_reset_out [expr $real_reset_ctrl & $msk_reset_out]
+    
+    echo "user input $exp_input exp. result: $exp_outcome0 / $exp_outcome1 / $exp_reset_out, outcome: $real_outcome0 / $real_outcome1 / $real_reset_out"
     # compare the returnvalue with expected result
-    if { $exp_outcome0 == $real_outcome0 && $exp_outcome1 == $real_outcome1 } { \
+    if { $exp_outcome0 == $real_outcome0 && $exp_outcome1 == $real_outcome1 && $exp_reset_out == $real_reset_out} { \
       echo "user input $exp_input OK!"
       set num_ok [expr {$num_ok + 1}]
       s_ok
