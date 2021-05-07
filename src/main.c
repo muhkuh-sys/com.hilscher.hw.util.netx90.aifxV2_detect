@@ -18,11 +18,25 @@ inline void activateLock( void ){
   ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
 }
 
+// Enable rst_out_n and drive a 1.
+static void enableResetOut(void)
+{
+  NX90_DEF_ptAsicCtrlComArea
+  NX90_DEF_ptAsicCtrlArea
+  uint32_t ulResetCtrl;
+
+  ulResetCtrl = ptAsicCtrlComArea->ulReset_ctrl;
+  ulResetCtrl |= MSK_NX90_reset_ctrl_EN_RES_REQ_OUT | MSK_NX90_reset_ctrl_RES_REQ_OUT;
+  
+  ptAsicCtrlArea->ulAsic_ctrl_access_key = ptAsicCtrlArea->ulAsic_ctrl_access_key;
+  ptAsicCtrlComArea->ulReset_ctrl = ulResetCtrl;
+}
+
 void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
 {
   uint16_t usResult0 = 0x55aa;
   uint16_t usResult1 = 0x2222;
-  
+
 
   #if ASIC_TYP==ASIC_TYP_NETX90
 
@@ -129,6 +143,8 @@ void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
         // => DeviceNet (0x40)
         usResult0 = 0x0040;
         usResult1 = 0x0000;
+        
+        enableResetOut();
       }
     }else{
       if(ulResult_COM_IO0){
@@ -139,6 +155,8 @@ void __attribute__ ((section (".init_code"))) start( uint16_t * pusResult)
         // => CAN open (0x30)
         usResult0 = 0x0030;
         usResult1 = 0x0000;
+        
+        enableResetOut();
       }
     }
   }else{
