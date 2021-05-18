@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <HBootImage type="REGULAR">
 	<Chunks>
-		<Snip artifact="aifxv2_detect" group="com.hilscher.hw.util.netx90" version="1.0.0">
+		<Snip artifact="aifxv2_detect" group="com.hilscher.hw.util.netx90" version="1.1.0">
 			<Parameter name="TARGET_ADDRESS">0x0002024a</Parameter>
 		</Snip>
         <!--- activate_debugging="true" mandatory for activating debugging during test! -->
