@@ -69,6 +69,17 @@ set handoveraddr_netx90_before  [expr {$handoveraddr_netx90_0 - 2}]
 set handoveraddr_netx90_1 [expr {$handoveraddr_netx90_0 + 2}]
 set handoveraddr_netx90_after [expr {$handoveraddr_netx90_0 + 4}]
 
+set addr_asic_ctrl_access_key 0xff4012c0
+
+set addr_reset_ctrl 0xff0016b0
+set msk_reset_out 0x0e000000
+set srt_reset_out 25
+
+# Global counters for test results
+set num_errors 0
+set num_ok 0
+
+
 #--- Reset function
 # \brief reset netX 90 
 # \details procedure according to: https://kb.hilscher.com/x/GylbBg
@@ -148,13 +159,86 @@ proc reset_device {} {
 
 
 # \brief run a single test.
+#
 # \details test expects to have a netX90 waiting. netX90 should not have executed any chunks.
 #  it is expected to run the reset_device function before the first test
 #  After execution the netX90 returns to the prepared endlessloop, where a breakpoint is also set.
 #  this method allows the wrapper run_test to call this function several times.
 #  Test depends on the testbinary compiled with the mbs.
+#
 # \param addr_result 32bit target address to write to the 16bit hardware assembly option
-proc testcase_for_single_state { value_to_set addr_result  } {
+# \param test_num subtest number, only used for printing.
+# \param exp_input The input pin combination, only used for printing.
+# \param exp_hw_option0 The expected output value (1/2)
+# \param exp_hw_option1 the expected output value (2/2)
+# \param initval_rst_out The initial value for rst_out_n (OE, output value or input value)
+# \param exp_rst_out The expected value for rst_out after the snippet has been executed.
+proc run_single_test { test_num exp_input exp_hw_option0 exp_hw_option1 initval_rst_out exp_rst_out } {
+    global handoveraddr_netx90_0
+    global handoveraddr_netx90_1
+    
+    global addr_asic_ctrl_access_key
+    global srt_reset_out
+    global msk_reset_out
+    global addr_reset_ctrl
+    
+    global num_ok
+    global num_errors
+
+    echo "Subtest $test_num"
+    echo "Input pins: $exp_input"
+    echo "Expected values for HW Option XC0/1: $exp_hw_option0 / $exp_hw_option1"
+    echo "Expected value for  RST_OUT_N:       $exp_rst_out"
+
+    # Invalidate the result.
+    mwh $handoveraddr_netx90_0 0xE5E1
+    mwh $handoveraddr_netx90_1 0xE5E1
+    
+    # Initialize for rst_out_n
+    set val_reset_ctrl [expr $initval_rst_out << $srt_reset_out]
+    mww $addr_asic_ctrl_access_key [read_data32 $addr_asic_ctrl_access_key] 
+    mww $addr_reset_ctrl $val_reset_ctrl
+    
+    # run single test
+    run_snippet $handoveraddr_netx90_0
+
+    # retrieve return value of single test
+    set act_hw_option0 [read_data16 $handoveraddr_netx90_0]
+    set act_hw_option1 [read_data16 $handoveraddr_netx90_1]
+    set act_reset_ctrl [read_data32 $addr_reset_ctrl]
+    
+    # extract reset_out
+    set act_reset_ctrl [expr $act_reset_ctrl & $msk_reset_out]
+    set act_reset_out [expr $act_reset_ctrl >> $srt_reset_out] 
+    
+    echo "Subtest $test_num"
+    echo "Input pins: $exp_input"
+    echo "Expected values for HW Option XC0/1: $exp_hw_option0 / $exp_hw_option1   Actual values: [format 0x%04x $act_hw_option0] / [format 0x%04x $act_hw_option1]"
+    echo "Expected value for  RST_OUT_N:       $exp_rst_out                 Actual value:  $act_reset_out"
+    
+    # compare the returnvalue with expected result
+    if { $exp_hw_option0 == $act_hw_option0 && $exp_hw_option1 == $act_hw_option1 && $exp_rst_out == $act_reset_out} { \
+      echo "user input $exp_input OK!"
+      set num_ok [expr {$num_ok + 1}]
+      s_ok
+    } else {
+      set num_errors [expr {$num_errors + 1}]
+      echo "nope! missmatch of return value"
+      s_err
+    }
+}
+
+
+# \brief run the snipppet.
+#
+# \details Expects to have a netX90 waiting. the netX90 should not have executed any chunks.
+#  It is expected to run the reset_device function before the first test.
+#  After execution the netX90 returns to the prepared endlessloop, where a breakpoint is also set.
+#  This method allows the wrapper run_test to call this function several times.
+#  Test depends on the testbinary compiled with the mbs.
+#
+# \param addr_result 32bit target address to write to the 16bit hardware assembly option
+proc run_snippet { addr_result } {
     global debug
     global intram1_start_addr
     global path_snippet_bin
@@ -203,18 +287,10 @@ proc testcase_for_single_state { value_to_set addr_result  } {
     # write something into the result register. If you can read this after test, the test might have stuck in a exception or a breakpoint.
     mwh $addr_result 0xaffe
     
-    echo ""
-	  echo "########"
-	  echo "Set value $value_to_set to input pins Bit 2:XM0_IO1, 1:COM_IO1, 0:COM_IO0"
-	  echo "########"
-	  
-	  echo "Applied? input any key"
-    set data [gets stdin]
-
-	  # Set config register: ro => address where to store the result.
-	  reg r0 $addr_result
+    # Set config register: ro => address where to store the result.
+    reg r0 $addr_result
   
-	  reg pc $snippet_exec_address
+    reg pc $snippet_exec_address
     # execute the prepared snipped, return to lr addr. into endlessloop!
 
     resume
@@ -233,7 +309,6 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 }
 
 
-
 # \brief Test the snippet if it does the correct work
 # \details two tests are applied
 # 1. 8 times a input is demanded and the input is controlled
@@ -247,6 +322,9 @@ proc testcase_for_single_state { value_to_set addr_result  } {
 #    handover address.
 # \todo: The test loads the image at every run from new. You could probably ommit this step.
 proc run_test { } {
+  global num_ok
+  global num_errors
+
   global handoveraddr_netx90_0
   global handoveraddr_netx90_1
   global handoveraddr_netx90_before
@@ -261,7 +339,7 @@ proc run_test { } {
   # iteration over this array may not
   # input expected
   # XM0_IO1  COM_IO1  COM_IO0
-array set input_reference0 {
+  array set input_reference0 {
     0x000 0x0080
     0x001 0x0080
     0x010 0x0080
@@ -282,69 +360,58 @@ array set input_reference0 {
     0x111 0x0000
   }
   
-  set addr_asic_ctrl_access_key 0xff4012c0
-  
-  set addr_reset_ctrl 0xff0016b0
-  set msk_reset_out 0x0e000000
-  set srt_reset_out 25
   array set ref_reset_out {
-    0x000 0
-    0x001 0
-    0x010 0
-    0x011 0
-    0x100 7 # CAN
-    0x101 0
-    0x110 7 # DeviceNet
-    0x111 0
+    0x000 no_change
+    0x001 no_change
+    0x010 no_change
+    0x011 no_change
+    0x100 out_1 # CAN
+    0x101 no_change
+    0x110 out_1 # DeviceNet
+    0x111 no_change
   }
   
-  set i 0
+  
+  set i 1
   set num_errors 0
   set num_ok 0
   foreach exp_input [lsort [array names input_reference0]] {
-    # inc loop counter for convenience
-    set i [expr {$i + 1}]
-    
-    # reset the register
-    mwh $handoveraddr_netx90_0 0xE5E1
-    mwh $handoveraddr_netx90_1 0xE5E1
     
     # init loop var for readability
-    set exp_outcome0 $input_reference0($exp_input)
-    set exp_outcome1 $input_reference1($exp_input)
-    set exp_reset_out $ref_reset_out($exp_input)
-    puts "\($i of 8\) ... $exp_input is [format 0x%04x $exp_outcome0]/[format 0x%04x $exp_outcome1] and $exp_reset_out"
+    set exp_hw_option0 $input_reference0($exp_input)
+    set exp_hw_option1 $input_reference1($exp_input)
+    set exp_rst_out $ref_reset_out($exp_input)
     
-    # Disable reset_out_n in case the previous test has enabled it.
-    mww $addr_asic_ctrl_access_key [read_data32 $addr_asic_ctrl_access_key] 
-    mww $addr_reset_ctrl 0x0
+    echo ""
+    echo "########"
+    echo "Set value $exp_input to input pins Bit 2:XM0_IO1, 1:COM_IO1, 0:COM_IO0"
+    echo "########"
+    echo "Applied? input any key"
+    set data [gets stdin]
     
-    # run single test
-    testcase_for_single_state $exp_input $handoveraddr_netx90_0
+    # rst_out_n_in (4) en_res_req_out_oe (2) res_req_out (1)
+    #       0                      0                0           = 0  high impedance 
+    #       0                      1                0           = 2  drive 0
+    #       1                      1                1           = 7  drive 1
+    if {$exp_rst_out == "no_change"} {
+        # In this case, the snippet is not supposed to change the configuration
+        # of rst_out_n. Therefore, we run the snippet multiple times with
+        # different configurations of rst_out_n and check that they remain the same.
+        # high impedance
+        run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 0 0 
+        set i [ expr $i + 1 ]
 
-    # retrieve return value of single test
-    set real_outcome0 [read_data16 $handoveraddr_netx90_0]
-    set real_outcome1 [read_data16 $handoveraddr_netx90_1]
-    set real_reset_ctrl [read_data32 $addr_reset_ctrl]
-    
-    # extract reset_out
-    set real_reset_out [expr $real_reset_ctrl & $msk_reset_out]
-    set real_reset_out [expr $real_reset_out >> $srt_reset_out] 
-    
-    echo "Input pins: $exp_input"
-    
-    echo "Expected values for HW Option XC0/1: $exp_outcome0 / $exp_outcome1   Actual values: [format 0x%04x $real_outcome0] / [format 0x%04x $real_outcome1]"
-    echo "Expected value for  RST_OUT_N:       $exp_reset_out                 Actual value:  $real_reset_out"
-    
-    # compare the returnvalue with expected result
-    if { $exp_outcome0 == $real_outcome0 && $exp_outcome1 == $real_outcome1 && $exp_reset_out == $real_reset_out} { \
-      echo "user input $exp_input OK!"
-      set num_ok [expr {$num_ok + 1}]
-      s_ok
+        # drive 0
+        run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 2 2
+        set i [ expr $i + 1 ]
+
+        # drive 1
+        run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 3 7 
+        set i [ expr $i + 1 ]
     } else {
-      set num_errors [expr {$num_errors + 1}]
-      echo "nope! missmatch of return value"
-      s_err
+        # In this case, the snippet is expected to change the configuration of rst_out_n.
+        run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 0 7
+        set i [ expr $i + 1 ]
     }
   }
 
@@ -355,7 +422,7 @@ array set input_reference0 {
   set real_before [read_data16 $handoveraddr_netx90_before]
   set real_after [read_data16 $handoveraddr_netx90_after]
   if { $control_value == $real_before } { \
-    echo "Posttest-befor ok!"
+    echo "Posttest-before ok!"
   } else {
     echo "ERROR: Reference area before the handover section has been altred during test!"
     set err [expr {$err + 1}]
@@ -439,16 +506,6 @@ proc play_with_arrays2 { } {
   }
   echo "end"
 }
-
-# \brief run a single test case with default parameters
-proc run_single_test { } {
-  # bp at end of snippet
-  # bp 0x201fe 2 hw
-  global handoveraddr_netx90
-  testcase_for_single_state 0x2 $handoveraddr_netx90
-  mdh $handoveraddr_netx90
-}
-
 
 proc test_odd { } {
   set err 1
