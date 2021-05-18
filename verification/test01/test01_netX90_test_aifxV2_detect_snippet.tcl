@@ -285,7 +285,7 @@ array set input_reference0 {
   set addr_asic_ctrl_access_key 0xff4012c0
   
   set addr_reset_ctrl 0xff0016b0
-  set msk_reset_out 0x07000000
+  set msk_reset_out 0x0e000000
   set srt_reset_out 25
   array set ref_reset_out {
     0x000 0
