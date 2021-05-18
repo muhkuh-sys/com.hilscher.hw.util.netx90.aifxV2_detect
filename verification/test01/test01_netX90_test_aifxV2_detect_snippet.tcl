@@ -283,33 +283,37 @@ array set input_reference0 {
   }
   
   set addr_asic_ctrl_access_key 0xff4012c0
+  
   set addr_reset_ctrl 0xff0016b0
-  set msk_reset_out 0x06000000
-  array set ref_reset_ctrl {
-    0x000 0x00000000
-    0x001 0x00000000
-    0x010 0x00000000
-    0x011 0x00000000
-    0x100 0x06000000 # CAN
-    0x101 0x00000000
-    0x110 0x06000000 # DeviceNet
-    0x111 0x00000000
+  set msk_reset_out 0x07000000
+  set srt_reset_out 25
+  array set ref_reset_out {
+    0x000 0
+    0x001 0
+    0x010 0
+    0x011 0
+    0x100 7 # CAN
+    0x101 0
+    0x110 7 # DeviceNet
+    0x111 0
   }
   
   set i 0
   set num_errors 0
   set num_ok 0
   foreach exp_input [lsort [array names input_reference0]] {
-    # inc loop counter for convinience
+    # inc loop counter for convenience
     set i [expr {$i + 1}]
+    
     # reset the register
     mwh $handoveraddr_netx90_0 0xE5E1
     mwh $handoveraddr_netx90_1 0xE5E1
-    # init loop var for readabilety
+    
+    # init loop var for readability
     set exp_outcome0 $input_reference0($exp_input)
     set exp_outcome1 $input_reference1($exp_input)
-    set exp_reset_out $ref_reset_ctrl($exp_input)
-    puts "\($i of 8\) ... $exp_input is $exp_outcome0 and $exp_outcome1"
+    set exp_reset_out $ref_reset_out($exp_input)
+    puts "\($i of 8\) ... $exp_input is [format 0x%04x $exp_outcome0]/[format 0x%04x $exp_outcome1] and $exp_reset_out"
     
     # Disable reset_out_n in case the previous test has enabled it.
     mww $addr_asic_ctrl_access_key [read_data32 $addr_asic_ctrl_access_key] 
@@ -322,9 +326,16 @@ array set input_reference0 {
     set real_outcome0 [read_data16 $handoveraddr_netx90_0]
     set real_outcome1 [read_data16 $handoveraddr_netx90_1]
     set real_reset_ctrl [read_data32 $addr_reset_ctrl]
-    set real_reset_out [expr $real_reset_ctrl & $msk_reset_out]
     
-    echo "user input $exp_input exp. result: $exp_outcome0 / $exp_outcome1 / $exp_reset_out, outcome: $real_outcome0 / $real_outcome1 / $real_reset_out"
+    # extract reset_out
+    set real_reset_out [expr $real_reset_ctrl & $msk_reset_out]
+    set real_reset_out [expr $real_reset_out >> $srt_reset_out] 
+    
+    echo "Input pins: $exp_input"
+    
+    echo "Expected values for HW Option XC0/1: $exp_outcome0 / $exp_outcome1   Actual values: [format 0x%04x $real_outcome0] / [format 0x%04x $real_outcome1]"
+    echo "Expected value for  RST_OUT_N:       $exp_reset_out                 Actual value:  $real_reset_out"
+    
     # compare the returnvalue with expected result
     if { $exp_outcome0 == $real_outcome0 && $exp_outcome1 == $real_outcome1 && $exp_reset_out == $real_reset_out} { \
       echo "user input $exp_input OK!"
