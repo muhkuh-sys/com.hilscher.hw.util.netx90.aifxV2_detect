@@ -30,7 +30,7 @@ typedef struct VERSION_HEADER_STRUCT
 	unsigned long ulVersionMajor;
 	unsigned long ulVersionMinor;
 	unsigned long ulVersionMicro;
-	const char    acVersionVcs[26];
+	const char    acVersionVcs[28];
 } VERSION_HEADER_T;
 
 
