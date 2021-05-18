@@ -253,7 +253,7 @@ proc run_snippet { addr_result } {
 
     # the snippet exec address is in the flashed snipped. It differs from the flash addr of the snippet.
     #   fint the correct address in the disassembly.txt of the snippet
-    set snippet_exec_address 0x000200dc
+    set snippet_exec_address 0x000200e8
 
     # stack decreases when advancing decreased by some bytes for the endless-loop
     set start_of_stack 0x3FFF0
