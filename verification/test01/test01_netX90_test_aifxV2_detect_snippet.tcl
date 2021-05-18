@@ -243,17 +243,17 @@ proc run_snippet { addr_result } {
     global intram1_start_addr
     global path_snippet_bin
     global cmd_rec_jump_loop
-
+    
     echo "start snippet"
 
     # ---------------------------------- configure test -----------------------------------------------------
     # addr from linker skript
-    set snippet_load_address 0x000200C0
+    set snippet_load_address 0x00022000
     # addr from snippet.xml (or elf file)
 
     # the snippet exec address is in the flashed snipped. It differs from the flash addr of the snippet.
     #   fint the correct address in the disassembly.txt of the snippet
-    set snippet_exec_address 0x000200e8
+    set snippet_exec_address 0x00022028
 
     # stack decreases when advancing decreased by some bytes for the endless-loop
     set start_of_stack 0x3FFF0
