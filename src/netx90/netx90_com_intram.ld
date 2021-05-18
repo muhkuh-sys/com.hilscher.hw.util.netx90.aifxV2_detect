@@ -24,7 +24,7 @@ MEMORY
 {
 	ASSERT_EMPTY(rwx)  : ORIGIN = 0x00000000, LENGTH = 0
 	/*ARB: hierhin das image vom Snippet*/
-	INTRAM(rwx)        : ORIGIN = 0x000200C0, LENGTH = 0x0001FF40
+	INTRAM(rwx)        : ORIGIN = 0x00022000, LENGTH = 0x0001E000
 	/*ARB:IFLASH(rx)         : ORIGIN = 0x00200000, LENGTH = 0x00080000*/
 }
 
@@ -52,6 +52,7 @@ SECTIONS
 		*(.rodata*)
 	} >INTRAM
 
+/* This program does not use a BSS area nor does it initialize it.
 	.bss :
 	{
 		PROVIDE ( __bss_start__ = . );
@@ -59,12 +60,15 @@ SECTIONS
 		*(COMMON)
 		PROVIDE ( __bss_end__ = . );
 	} >INTRAM
+*/
 
+/* This program does not have its own stack area, it uses the ROM code stack.
 	.stack :
 	{
 		. = ORIGIN(INTRAM) + LENGTH(INTRAM);
 		PROVIDE ( stack_top = . );
 	} >INTRAM
+*/
 
 /* ARB
 	.iflash ORIGIN(IFLASH) :
