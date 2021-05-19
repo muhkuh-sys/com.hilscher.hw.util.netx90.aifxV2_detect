@@ -65,9 +65,16 @@ set intram3_start_addr 0x20080000
 
 # There are two interfaces on each netX, so we need two hand over params
 set handoveraddr_netx90_0 0x0002024a
-set handoveraddr_netx90_before  [expr {$handoveraddr_netx90_0 - 2}]
 set handoveraddr_netx90_1 [expr {$handoveraddr_netx90_0 + 2}]
-set handoveraddr_netx90_after [expr {$handoveraddr_netx90_0 + 4}]
+
+set canary1_start 0x20000
+set canary1_len [expr $handoveraddr_netx90_0 - $canary1_start]
+
+#set canary2_start $handoveraddr_netx90_0
+set canary2_start [expr $handoveraddr_netx90_1 + 2]
+set canary2_len [expr 0x22000 - $canary2_start]
+
+
 
 set addr_asic_ctrl_access_key 0xff4012c0
 
@@ -78,6 +85,47 @@ set srt_reset_out 25
 # Global counters for test results
 set num_errors 0
 set num_ok 0
+
+
+proc get_random_bytes {len} {
+    set data(0) 0
+    for {set i 0} {$i < $len} {incr i} {
+        set data($i) [expr int(rand() * 255)]
+    }
+    
+    return $data
+}
+
+proc put_canary {start_addr len} {
+    set data [get_random_bytes $len]
+    array2mem data 8 $start_addr $len
+    return $data
+}
+
+proc check_canary {start_addr verify_data} {
+    set len [array size verify_data]
+    set read_data(0) 0
+    set fOverwritten 0
+    mem2array read_data 8 $start_addr $len
+    
+    for {set offs 0} {$offs < $len} {incr offs} {
+        set bread $read_data($offs)
+        set bverify $verify_data($offs) 
+        if [expr $bread != $bverify] {
+            set addr_hex [format "0x%08x" [expr $start_addr + $offs]]
+            set bverify_hex [format "0x%02x" $bverify]
+            set bread_hex [format "0x%02x" $bread]
+            echo "canary overwritten at $addr_hex: $bverify_hex -> $bread_hex"
+            set fOverwritten 1
+        }
+    }
+    
+    if [expr $fOverwritten == 0] {
+        set end_addr [expr $start_addr + $len - 1]
+        echo "canary data at [format "0x%08x..0x%08x" $start_addr $end_addr] OK"
+    }
+    return $fOverwritten
+}
 
 
 #--- Reset function
@@ -185,7 +233,10 @@ proc run_single_test { test_num exp_input exp_hw_option0 exp_hw_option1 initval_
     global num_ok
     global num_errors
 
-    echo "Subtest $test_num"
+    echo "########"
+    echo "### Subtest $test_num"
+    echo "########"
+    echo ""
     echo "Input pins: $exp_input"
     echo "Expected values for HW Option XC0/1: $exp_hw_option0 / $exp_hw_option1"
     echo "Expected value for  RST_OUT_N:       $exp_rst_out"
@@ -303,9 +354,7 @@ proc run_snippet { addr_result } {
     if { $debug } { echo "expect to be at $intram1_start_addr pc:" }
     if { $debug } { reg pc }
     echo ""
-    echo "########"
     echo "### finished snippet !!!"
-    echo "########"
 }
 
 
@@ -327,15 +376,12 @@ proc run_test { } {
 
   global handoveraddr_netx90_0
   global handoveraddr_netx90_1
-  global handoveraddr_netx90_before
-  global handoveraddr_netx90_after
-  # this value will be written before and after the result value
-  set control_value 0x55aa
-  # write the control value in the bytes before and after the transfare area,
-  # this will control the write acces from the snippet.
-  mwh $handoveraddr_netx90_before $control_value
-  mwh $handoveraddr_netx90_after  $control_value
 
+  global canary1_start
+  global canary1_len
+  global canary2_start
+  global canary2_len
+  
   # iteration over this array may not
   # input expected
   # XM0_IO1  COM_IO1  COM_IO0
@@ -349,6 +395,7 @@ proc run_test { } {
     0x110 0x0040
     0x111 0x0070
   }
+
   array set input_reference1 {
     0x000 0x0080
     0x001 0x0080
@@ -371,10 +418,13 @@ proc run_test { } {
     0x111 no_change
   }
   
-  
+  set canary1 [put_canary $canary1_start $canary1_len]
+  set canary2 [put_canary $canary2_start $canary2_len]
+
   set i 1
   set num_errors 0
   set num_ok 0
+  
   foreach exp_input [lsort [array names input_reference0]] {
     
     # init loop var for readability
@@ -399,41 +449,41 @@ proc run_test { } {
         # different configurations of rst_out_n and check that they remain the same.
         # high impedance
         run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 0 0 
-        set i [ expr $i + 1 ]
+        incr i
 
         # drive 0
         run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 2 2
-        set i [ expr $i + 1 ]
+        incr i
 
         # drive 1
         run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 3 7 
-        set i [ expr $i + 1 ]
+        incr i
     } else {
         # In this case, the snippet is expected to change the configuration of rst_out_n.
         run_single_test $i $exp_input $exp_hw_option0 $exp_hw_option1 0 7
-        set i [ expr $i + 1 ]
+        incr i
     }
   }
+
 
   echo "------------------------------------------------------------"
   set err 0
   echo "All test summary:"
-  # evaluate, if the boarders have been touched:
-  set real_before [read_data16 $handoveraddr_netx90_before]
-  set real_after [read_data16 $handoveraddr_netx90_after]
-  if { $control_value == $real_before } { \
-    echo "Posttest-before ok!"
-  } else {
-    echo "ERROR: Reference area before the handover section has been altred during test!"
-    set err [expr {$err + 1}]
+  
+  # evaluate, if the canary areas have been touched:
+  set fOverwritten_before [check_canary $canary1_start $canary1]
+  set fOverwritten_after [check_canary $canary2_start $canary2]
+  
+  if { $fOverwritten_before != 0 } {
+    echo "ERROR: Reference area before the handover section has been altered during test!"
+    incr err
   }
-  if { $control_value == $real_after } { \
-    echo "Posttest-after ok!"
-  } else {
-    echo "ERROR: Reference area after the handover section has been altred during test!"
-    set err [expr {$err + 1}]
+  
+  if { $fOverwritten_after != 0 } {
+    echo "ERROR: Reference area after the handover section has been altered during test!"
+    incr err
   }
-
+  
   # evaluate batch result
   if { $num_errors == 0 } { \
     echo "Main test group: All test passed!"
