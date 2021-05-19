@@ -90,7 +90,7 @@ proc run_test_02 {} {
     
     # --------------------------------- configure test -----------------------------------------------------
     # addr from linker skript
-    set snippet_load_address 0x000200C0
+    set snippet_load_address 0x00022000
     # addr from snippet.xml (or elf file)
     # set romcode_look_up_addr 0x20080000
     set invalid_word 0xAFFEE5E1 
