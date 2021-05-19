@@ -307,8 +307,8 @@ proc run_snippet { addr_result } {
     set snippet_exec_address 0x00022028
 
     # stack decreases when advancing decreased by some bytes for the endless-loop
-    set start_of_stack 0x3FFF0
-
+    set stack_top 0x20099ef0
+    
     # ---------------------------------- execute test--------------------------------------------------------    
     # download snippet to netX
     load_image $path_snippet_bin $snippet_load_address bin
@@ -317,8 +317,8 @@ proc run_snippet { addr_result } {
     # set mode of xcpr to default, telling spu to execute thumbcode. See arm arm manual for more details.
     reg xPSR 0x01000000
     # set stack pointer to the start of the stack, to give the snippet a valid stack.
-    reg sp $start_of_stack 
-
+    reg sp $stack_top 
+    
     # init a small endlessloop recjump + nop
     mww $intram1_start_addr $cmd_rec_jump_loop
     # set return address, where breakpoint waits for return of snippet
